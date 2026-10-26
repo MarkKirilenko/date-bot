@@ -184,7 +184,7 @@ $('places').onclick = e => {
 };
 
 $('send').onclick = () => {
-  if (!tg || !tg.initData) { alert('Открой приложение кнопкой в Telegram-боте'); return; }
+  if (!tg || !tg.platform || tg.platform === 'unknown') { alert('Открой приложение кнопкой в Telegram-боте'); return; }
   $('send').disabled = true;
   tg.sendData(JSON.stringify({date: sel, time, place}));
 };
