@@ -59,7 +59,7 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 <section class="screen on" id="s1">
   <div class="heart">💞</div>
   <h1>Поход на свидание</h1>
-  <p class="lead">Лучшие вечера случаются, когда двое находят время друг для друга.<br>
+  <p class="lead">Я очень хочу проводить время с тобой, но не знаю, когда ты можешь и хочешь, и специально для этого я создал это…<br>
   Этот бот поможет выбрать удобный день, время и место, чтобы наше свидание получилось тёплым и особенным.</p>
   <p class="lead" style="margin-top:0">Всего пара нажатий — и я уже жду встречи ✨</p>
   <div class="spacer"></div>
@@ -120,22 +120,23 @@ let A = null, view = new Date(), sel = null, time = null, place = null;
 
 function show(id){ document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); window.scrollTo(0,0); }
 
-const SLOTS = ["12:00","14:00","16:00","18:00","20:00"];
+const HOURS = Array.from({length: 15}, (_, i) => String(i + 9).padStart(2, '0') + ':00');
+const allowedMask = d => A.rules[(d.getDay() + 6) % 7];
+const freeMask = d => allowedMask(d) & ~(A.busy[iso(d)] || 0);
 function load(){
-  const q = new URLSearchParams(location.search).get('b') || '';
-  A = {slots: SLOTS, busy: {}, closed: [], maxDays: 120, today: iso(new Date())};
-  q.split(',').filter(Boolean).forEach(x => {
-    const [d, m] = x.split('-'), k = `20${d.slice(0,2)}-${d.slice(2,4)}-${d.slice(4,6)}`, mask = +m;
-    A.busy[k] = SLOTS.filter((_, i) => (mask >> i) & 1);
-    if (mask === 31) A.closed.push(k);
+  const p = new URLSearchParams(location.search);
+  let rules = (p.get('r') || '').split('.').map(Number);
+  if (rules.length !== 7 || rules.some(isNaN)) rules = Array(7).fill(32767);
+  A = {rules, busy: {}, maxDays: 120, today: iso(new Date())};
+  (p.get('b') || '').split(',').filter(Boolean).forEach(x => {
+    const [d, m] = x.split('-'); A.busy[`20${d.slice(0,2)}-${d.slice(2,4)}-${d.slice(4,6)}`] = +m;
   });
   const t = new Date(A.today + 'T00:00'); view = new Date(t.getFullYear(), t.getMonth(), 1);
   render();
 }
-
 function isClosed(d){
   const t = new Date(A.today + 'T00:00'), last = new Date(t); last.setDate(t.getDate() + A.maxDays);
-  return d < t || d > last || A.closed.includes(iso(d));
+  return d < t || d > last || freeMask(d) === 0;
 }
 
 function render(){
@@ -154,8 +155,9 @@ function render(){
 }
 
 function renderTimes(){
-  const busy = A.busy[sel] || [];
-  $('times').innerHTML = A.slots.map(s => `<button class="time${s===time?' sel':''}" data-t="${s}" ${busy.includes(s)?'disabled':''}>${s}</button>`).join('');
+  const d = new Date(sel + 'T00:00'), allow = allowedMask(d), busy = A.busy[sel] || 0, now = new Date().getHours();
+  $('times').innerHTML = HOURS.map((s, i) => !((allow >> i) & 1) ? '' :
+    `<button class="time${s===time?' sel':''}" data-t="${s}" ${((busy >> i) & 1) || (sel === A.today && i + 9 <= now) ? 'disabled' : ''}>${s}</button>`).join('');
   $('timeBox').style.display = 'block';
 }
 
@@ -184,7 +186,7 @@ $('places').onclick = e => {
 };
 
 $('send').onclick = () => {
-  if (!tg || !tg.platform || tg.platform === 'unknown') { alert('Открой приложение кнопкой в Telegram-боте'); return; }
+  if (!tg || !tg.platform || tg.platform === 'unknown') { alert('Открой приложение кнопкой в Telegram-боте (v2)'); return; }
   $('send').disabled = true;
   tg.sendData(JSON.stringify({date: sel, time, place}));
 };
